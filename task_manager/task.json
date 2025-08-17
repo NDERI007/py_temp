@@ -1,0 +1,14 @@
+[
+  {
+    "task": "create task managerCLI",
+    "done": false
+  },
+  {
+    "task": "add del func",
+    "done": true
+  },
+  {
+    "task": "learn python basics",
+    "done": true
+  }
+]
