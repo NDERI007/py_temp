@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nderi-string-utils"
+version = "0.1.0"
+description = "A handy Python string utilities package"
+authors = [{ name = "Nderi", email = "you@example.com" }]
+readme = "README.md"
+requires-python = ">=3.9"
+
+# Use SPDX identifier instead of deprecated {text = "..."}
+license= "MIT"
+
+# Also point to license file(s)
+license-files = ["LICENSE"]
+
+dependencies = [
+    "regex",
+    "email-validator",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.twine]
+repository = "github"
+
+[project.scripts]
+string-utils = "string_utils.cli:main"
