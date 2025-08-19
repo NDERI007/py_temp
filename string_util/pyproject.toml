@@ -23,6 +23,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["string_utils*"]  # Include your subfolder with .py files
 
 [tool.twine]
 repository = "github"
