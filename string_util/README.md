@@ -12,24 +12,25 @@ A handy Python string utilities package.
 
 ## Installation
 
+Go to the Releases page
+Find the latest pre-release (marked with "Pre-release" tag)
+In the Assets section, source code.tar.gz
+Install it directly:
+Extract and cd into string_util via CLI
+Run a pip install .
+
 ````
 
 ## Usage
 
 ```python
-import string_utils
+from string_utils
 
 # Example usage
 result = string_utils.clean("hello    world")
 print(result)
 
-# If you have a CLI tool
-
-```bash
-Command line usage
-string-utils clean "HELLO WORLD"
-hello world
-```
+# Since this is a small package it's not a must to run it in the CLI
 
 ## Requirements
 
