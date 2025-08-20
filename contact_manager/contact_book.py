@@ -5,14 +5,14 @@ from typing import Dict
 class ContactBook:
     def __init__(self):
         #Encapsulation is achieved by the single leading underscore _
-        self._contact = Dict[uuid.UUID, Contact] = {}
+        self._contact : Dict[uuid.UUID, Contact] = {}
 
     def add_contact(self, contact:Contact):
         """Add a new contact to the book."""
         self._contact[contact.cid] = contact
 
     def remove_contact(self, contact:Contact):
-        """Remove a contact by name (first match)."""
+        """Remove a contact by id."""
         if contact.cid in self._contact:
          del self._contact[contact.cid]
 

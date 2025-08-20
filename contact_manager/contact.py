@@ -5,10 +5,10 @@ import uuid
 
 @dataclass
 class Contact:
-    cid: uuid.UUID = field(default_factory=uuid.uuid4())
     cname: str
     phone: str
     email: str
+    cid: uuid.UUID = field(default_factory=uuid.uuid4)
 
     EMAIL_RE: ClassVar[re.Pattern] = re.compile(r"[^@]+@[^@]+\.[^@]+")
 
