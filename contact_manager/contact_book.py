@@ -2,6 +2,7 @@ import os
 import tempfile
 import uuid
 import pandas as pd
+import tabulate
 from contact import Contact
 from typing import Dict
 
@@ -57,7 +58,7 @@ class ContactBook:
            return False
         return True
     
-    def save_to_Panda(self, filename) -> int:
+    def save_to_Panda(self, filename:str) -> int:
         """
          Save contacts to CSV using pandas. Returns number of contacts saved.
           Uses an atomic write (write to temp file then os.replace).
@@ -91,3 +92,39 @@ class ContactBook:
            except Exception:
             pass
            raise
+
+    def load_contact_pandas(self, filename:str, show_table:bool =True) -> int:
+        """
+        Load contacts from CSV into the ContactBook using pandas.
+        Returns the number of contacts loaded.
+        Optionally prints them in a tabulated format.
+        """
+        try:
+           df = pd.read_csv(filename, encoding="UTF-8")
+
+           # Clear old contacts and repopulate
+           self._contact.clear()
+
+           for _, row in df.iterrows():
+              c= Contact(
+                 cname=row["cname"],
+                 phone=str(row["phone"]),
+                 email=row["email"],
+              )
+              # If CSV had cid, keep it
+              if "cid" in row and pd.notna(row["cid"]):
+                 c.cid = row["cid"]
+                 self._contact[c.cid] = c
+
+            # Show table if requested
+              if show_table:
+               print(tabulate(df, headers="keys", tablefmt="orgtbl"))
+
+               return len(self._contact)
+
+        except FileNotFoundError:
+         print(f"❌ File not found: {filename}")
+         return 0
+        except Exception as e:
+               print(f"❌ Error loading contacts: {e}")
+               return 0

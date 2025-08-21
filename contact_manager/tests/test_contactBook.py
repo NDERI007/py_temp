@@ -1,4 +1,6 @@
 import uuid
+
+import pandas as pd
 from contact_book import ContactBook, Contact
 
 def test_contactAddition():
@@ -205,3 +207,27 @@ def test_update_existing_contact():
     contact_book.update_contacts(alice.cid, email="kev@sexample.com")
 
     assert alice.email is not "alice@example.com"  # unchanged
+
+def test_saveto_panda(tmp_path):
+    contact_book =ContactBook()
+    alice = Contact(cname="Alice", phone="123", email="alice@example.com")
+    bob = Contact(cname="Bob", phone="456", email="bob@example.com")
+    contact_book.add_contact(alice)
+    contact_book.add_contact(bob)
+
+    filename= tmp_path/"contact.csv"
+
+    count= contact_book.save_to_Panda(str(filename))
+
+    assert count == 2
+
+    assert filename.exists()
+
+     # Assert 3: contents are correct using pandas
+    df = pd.read_csv(filename, dtype=str)
+    assert list(df.columns) == ["cname", "phone", "email", "cid"]
+    assert set(df["cname"]) == {"Alice", "Bob"}
+    assert set(df["phone"]) == {"123", "456"}
+    assert set(df["email"]) == {"alice@example.com", "bob@example.com"}
+    # each row cid should be a string (uuid)
+    assert all(isinstance(cid, str) for cid in df["cid"])
