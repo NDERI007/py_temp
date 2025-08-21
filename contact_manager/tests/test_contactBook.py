@@ -195,3 +195,13 @@ def test_list_contacts_returns_copy():
     # Should be different list objects (but same content)
     assert contacts1 is not contacts2  # Different objects
     assert contacts1 == contacts2      # Same content
+
+def test_update_existing_contact():
+
+    contact_book =ContactBook()
+    alice = Contact(cname="Alice", phone="123", email="alice@example.com")
+    contact_book.add_contact(alice)
+
+    contact_book.update_contacts(alice.cid, email="kev@sexample.com")
+
+    assert alice.email is not "alice@example.com"  # unchanged
