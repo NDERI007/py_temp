@@ -2,7 +2,7 @@ import os
 import tempfile
 import uuid
 import pandas as pd
-import tabulate
+from tabulate import tabulate
 from contact import Contact
 from typing import Dict
 
@@ -38,7 +38,7 @@ class ContactBook:
         """
         contact= self.get_contact(contact_id)
         if not contact:
-            return False
+           return False
         
         original = {field: getattr(contact, field) for field in self.ALLOWED_UPDATE_FIELDS}
 
@@ -72,7 +72,7 @@ class ContactBook:
         for c in self._contact.values():
            d= c.to_Dict()
            d["cid"]= str(d["cid"]) # UUID → str
-           rows.append(d)
+           rows.append(d) #add to the end of the list
 
          # 3) Build DataFrame (stable column order even if rows = [])
         df = pd.DataFrame(rows, columns=["cname","phone","email","cid"])
@@ -128,3 +128,14 @@ class ContactBook:
         except Exception as e:
                print(f"❌ Error loading contacts: {e}")
                return 0
+        
+contact_book =ContactBook()
+alice = Contact(cname="Alice", phone="123", email="alice@example.com")
+bob = Contact(cname="Bob", phone="456", email="bob@example.com")
+contact_book.add_contact(alice)
+contact_book.add_contact(bob)
+
+filename= "contact.csv"
+
+#count= contact_book.save_to_Panda(str(filename))
+count1 = contact_book.load_contact_pandas(str(filename))
