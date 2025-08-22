@@ -102,6 +102,10 @@ class ContactBook:
         try:
            df = pd.read_csv(filename, encoding="UTF-8")
 
+           # Ensure 'cid' exists in the CSV
+           if "cid" not in df.columns:
+            raise ValueError("CSV missing required 'cid' column")
+
            # Clear old contacts and repopulate
            self._contact.clear()
 
@@ -112,9 +116,12 @@ class ContactBook:
                  email=row["email"],
               )
               # If CSV had cid, keep it
-              if "cid" in row and pd.notna(row["cid"]):
+              if pd.notna(row["cid"]):
                  c.cid = row["cid"]
                  self._contact[c.cid] = c
+              else:
+                 raise ValueError("CSV missing required 'cid' column")
+                 
 
             # Show table if requested
               if show_table:

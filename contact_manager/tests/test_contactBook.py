@@ -1,6 +1,7 @@
 import uuid
 
 import pandas as pd
+import pytest
 from contact_book import ContactBook, Contact
 
 def test_contactAddition():
@@ -231,3 +232,33 @@ def test_saveto_panda(tmp_path):
     assert set(df["email"]) == {"alice@example.com", "bob@example.com"}
     # each row cid should be a string (uuid)
     assert all(isinstance(cid, str) for cid in df["cid"])
+
+def load_contacts_pandas(tmp_path, capsys):
+    contact_book =ContactBook()
+    alice = Contact(cname="Alice", phone="123", email="alice@example.com")
+    bob = Contact(cname="Bob", phone="456", email="bob@example.com")
+    contact_book.add_contact(alice)
+    contact_book.add_contact(bob)
+
+    filename= tmp_path/"contact.csv"
+
+    contact_book.save_to_Panda(str(filename))
+
+    new_book = ContactBook()
+    loaded = new_book.load_contact_pandas(str(filename), show_table=True)
+    assert loaded == 2
+    assert len(new_book._contact) == 2
+
+    # Verify the loaded contacts match original
+    loaded_names = {c.cname for c in new_book._contact.values()}
+    loaded_phones = {c.phone for c in new_book._contact.values()}
+    loaded_emails = {c.email for c in new_book._contact.values()}
+
+    assert loaded_names == {"Alice", "Bob"}
+    assert loaded_phones == {"123", "456"}
+    assert loaded_emails == {"alice@example.com", "bob@example.com"}
+
+    # Verify tabulate output captured
+    captured = capsys.readouterr()
+    assert "Alice" in captured.out
+    assert "Bob" in captured.out
