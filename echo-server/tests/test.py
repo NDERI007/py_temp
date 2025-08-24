@@ -1,4 +1,3 @@
-# tests/test_echo_threaded.py
 import threading
 import time
 import pytest
@@ -52,3 +51,19 @@ def test_timeout_behaviour(echo_server):
     soc.settimeout(0.2)
     with pytest.raises(TimeoutError):
         soc.recv(1024)
+
+def test_empty_message(echo_server):
+    message=b""
+    #sending empty message should return empty
+    resp = echo_client(echo_server.host, echo_server.port, message)
+    assert resp == message
+
+def test_close_mid_send(echo_server):
+    import socket
+    # Open socket, send part of a message, then close before finishing
+    with socket.create_connection((echo_server.host, echo_server.port)) as s:
+        s.sendall(b"half-message")
+        # close immediately without sending rest
+        # server should just echo back what it got, no crash
+    time.sleep(0.05)  # give server time to handle
+    # no assertion needed — test passes if server doesn’t crash
