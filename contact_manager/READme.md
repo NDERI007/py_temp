@@ -1,4 +1,4 @@
-📒# Contact Manager
+# Contact Manager
 
 A simple Python project for managing contacts (name, phone, email) with validation, search, updates, and CSV persistence using pandas.
 
@@ -14,7 +14,7 @@ Persistence with safe CSV saving/loading using pandas
 
 Tabulated CLI output via tabulate
 
-🚀## Features
+## Features 🚀
 
 Add and remove contacts
 
@@ -30,7 +30,7 @@ Load from CSV with tabulated preview
 
 Automatic UUID assignment per contact
 
-🛠# Installation
+## Installation 🛠
 
 Clone this repository and install dependencies:
 
