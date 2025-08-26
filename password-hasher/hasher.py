@@ -8,18 +8,18 @@ Problems:
 Use bcrypt/argon2 instead (see secure_hasher.py).
 """
 from __future__ import annotations
-import os
-import hashlib
-import hmac
+import os #used to generate random bytes for the salt
+import hashlib #provides cryptographic hash functions (SHA-256, etc).
+import hmac #gives tools for secure comparisons (constant-time comparison to avoid timing attacks).
 
 ALG = "sha256"
-SALT_LEN = 16 # 128-bit salt
+SALT_LEN = 16 # 128-bit salt Salts prevent attacks like precomputed rainbow tables because each password will hash differently even if the password itself is the same.
 
 def _b2h(b: bytes) -> str:
     return b.hex()
 
 def _h2b(s:str) -> bytes:
-    return bytes.fromhex()
+    return bytes.fromhex(s)
 
 def hash_password_sha(password:str) -> str:
     """
@@ -29,7 +29,7 @@ def hash_password_sha(password:str) -> str:
         raise TypeError("password must be string")
     
     salt = os.urandom(SALT_LEN)  # random per-password salt
-    digest = hashlib.sha256(salt + password.encode("UTF-8")).digest()
+    digest = hashlib.sha256(salt + password.encode("UTF-8")).digest() #Concatenates the salt and password, hashes them with SHA-256.
     return f"{ALG}${_b2h(salt)}${_b2h(digest)}"
 
 def verify_password_sha256(password: str, stored: str) -> bool:
