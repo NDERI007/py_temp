@@ -1,21 +1,16 @@
-from hasher import hash_password_sha, verify_password_sha256
-from secure_hasher import hash_password, verify_password
+import hmac, hashlib
 
-pd = "fireForcec8"
+def make_hmac(key_bytes, msg):
+    return hmac.new(key_bytes, msg, hashlib.sha256).hexdigest()
 
-def main():
-    pd="fireForcec8"
-    print("=== BAD: SHA-256 ===")
-    stored_weak= hash_password_sha(pd)
-    print("Stored")
-    print("ok", verify_password_sha256(pd, stored_weak))
-    print("Wrong", verify_password_sha256("oops", stored_weak))
+key1= b"\x05" # 1 byte key (toy — insecure)
+msg= b"cyberinnit"
+mac = make_hmac(key1, msg)
+print("Given mac:", mac)
 
-    print("\n=== GOOD: bcrypt ===")
-    stored_strong= hash_password(pd) #default cost
-    print("stored")
-    print("Ok",  verify_password(pd, stored_strong))
-    print("Wrong", verify_password("oops", stored_strong))
-
-if __name__ == "__main__":
-    main()
+# Attacker brute-force key: try all 1-byte keys
+for k in range(256):
+    cand =bytes([k])
+    if make_hmac(cand, msg) == mac:
+        print("Found youuu:", cand)
+        break
