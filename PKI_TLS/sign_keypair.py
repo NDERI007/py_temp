@@ -36,6 +36,30 @@ def ed_gen_key():
             border_style="green"
         )
     )
+    # Message
+    message = b"hello, world!"
+
+    # Sign with private key
+    signature = private_key.sign(message)
+    print("Signature:", signature.hex())
+
+    # Verify with public key
+    try:
+        public_key.verify(signature, message)
+        console.print(
+            Panel.fit(
+                "[bold #a78bfa] ✅ Signature verified [/bold #a78bfa]\n",
+                border_style="#a855f7"  # purple-pink border
+            )
+        )
+    except Exception:
+        console.print(
+            Panel.fit(
+            "[bold #f87171] ❌ Verification failed[/bold #f87171]\n"
+            "[#ef4444]Something went wrong![/#ef4444]",
+            border_style="#b91c1c"
+            )
+        )
 
 def inspect_keys():
     # Load private key

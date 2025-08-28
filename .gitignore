@@ -5,6 +5,8 @@ __pycache__/
 /python-template/
 # C extensions
 *.so
+# Ignore Ed25519 keys
+*.pem
 
 #toml
 pyProj.toml
