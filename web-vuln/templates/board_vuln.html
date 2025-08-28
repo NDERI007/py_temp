@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Vulnerable Message Board</title>
+  </head>
+  <body>
+    <h1>❌ Vulnerable XSS Demo</h1>
+    <form method="post">
+      <textarea name="message" rows="3" cols="40"></textarea><br />
+      <button type="submit">Post</button>
+    </form>
+
+    <h2>Messages:</h2>
+    <ul>
+      {% for msg in messages %}
+      <!-- VULNERABLE: using |safe tells Jinja not to escape -->
+      <li>{{ msg|safe }}</li>
+      {% endfor %}
+    </ul>
+
+    <p><a href="/xss">⬅ Back to XSS menu</a></p>
+  </body>
+</html>

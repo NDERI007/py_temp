@@ -1,0 +1,11 @@
+{% extends "base.html" %} {% block content %}
+<form action="/search" method="get">
+  <label>Search by name: <input name="name" /></label>
+  <button type="submit">Search</button>
+</form>
+<form method="get" action="{{ url_for('search_safe') }}">
+  <label for="name_safe">Name:</label>
+  <input type="text" id="name_safe" name="name" required />
+  <button type="submit">Search (safe)</button>
+</form>
+{% endblock %}

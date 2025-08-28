@@ -1,0 +1,11 @@
+{% extends "base.html" %} {% block content %}
+<p>Search query: {{ query }}</p>
+<ul>
+  {% for row in results %}
+  <li>{{ row.name }} — {{ row.email }}</li>
+  {% else %}
+  <li>No results</li>
+  {% endfor %}
+</ul>
+<a href="/">Back</a>
+{% endblock %}

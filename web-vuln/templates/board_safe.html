@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Safe Message Board</title>
+  </head>
+  <body>
+    <h1>✅ Safe XSS Demo</h1>
+    <form method="post">
+      <textarea name="message" rows="3" cols="40"></textarea><br />
+      <button type="submit">Post</button>
+    </form>
+
+    <h2>Messages:</h2>
+    <ul>
+      {% for msg in messages %}
+      <!-- we don’t use |safe — we just let Jinja auto-escape (so even if bleach misses something, Jinja protects us): -->
+      <li>{{ msg }}</li>
+      {% endfor %}
+    </ul>
+
+    <p><a href="/xss">⬅ Back to XSS menu</a></p>
+  </body>
+</html>
