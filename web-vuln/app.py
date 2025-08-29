@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from flask_wtf import CSRFProtect
 from flask_wtf.csrf import CSRFError
-from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, current_user
 from passlib.hash import bcrypt
 
 
@@ -143,6 +143,7 @@ def board_safe():
         return render_template("board_safe.html", messages=safe_messages)
     return render_template("board_safe.html", messages=safe_messages)
 
+# === cross-site Request Forgery ===
 @app.route("/csrf")
 def csrf_index():
     return """
@@ -249,13 +250,6 @@ def login_safe():
 @login_required
 def dashboard():
     return f"🛡️ Welcome {current_user.username} (secure)"
-    
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return "Logged out"
 
 
 @app.route("/dump_users")
