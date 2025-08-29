@@ -6,6 +6,7 @@
   <body>
     <h1>✅ Safe XSS Demo</h1>
     <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <textarea name="message" rows="3" cols="40"></textarea><br />
       <button type="submit">Post</button>
     </form>

@@ -2,12 +2,17 @@ import bleach
 from flask import Flask, jsonify, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+from flask_wtf import CSRFProtect
+from flask_wtf.csrf import CSRFError
 
 app = Flask(__name__)
 
 # --- DB config (simple local SQLite for the mini-app) ---
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///contact.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'SEiji@7'
+
+csrf = CSRFProtect(app)
 
 db = SQLAlchemy(app)
 
@@ -27,6 +32,7 @@ def index():
     <ul>
         <li><a href="/sqli">SQL Injection Demo</a></li>
         <li><a href="/xss">XSS Demo</a></li>
+        <li><a href="/csrf">CSRF demo</a><li>
     </ul>
     """
 
@@ -79,6 +85,7 @@ def init_db():
         db.session.commit()
         print("DB initialized with sample contacts")
 
+#Cross-Site Scripting (XSS)
 @app.route("/xss")
 def xss_index():
     return """
@@ -114,11 +121,50 @@ def board_safe():
     if request.method == "POST":
         msg = request.form.get("message","")
         # Clean the message using bleach
-        safe_msg = bleach.clean(msg)
-        safe_msg.append(msg)
+        clean_msg = bleach.clean(msg)
+        safe_messages.append(clean_msg)
         return render_template("board_safe.html", messages=safe_messages)
     return render_template("board_safe.html", messages=safe_messages)
 
+@app.route("/csrf")
+def csrf_index():
+    return """
+    <h2>CSRF demo</h2>
+    <li><a href="/add_cont_vuln">Vulnerable demo</a></li>
+    <li><a href="/add_cont_safe">Safe demo</a><li>
+    """
+contacts=[]
+# === CSRF vulnerable add_contact route ===
+@app.route("/add_cont_vuln", methods=["GET", "POST"])
+def add_cont_vuln():
+    """
+    ❌ Vulnerable: no CSRF token.
+    An attacker could trick the victim into submitting a form to this endpoint.
+    """
+    if request.method == "POST":
+       name= request.form.get("name","")
+       email= request.form.get("email","")
+       if name and email:
+           contacts.append({"name": name, "email": email})
+       return render_template("add_cont_vuln.html", contacts=contacts)
+    return render_template("add_cont_vuln.html", contacts=contacts)
+
+@app.route("/add_cont_safe", methods=["GET","POST"])
+def add_contact():
+    if request.method == "POST":
+        name= request.form.get("name","")
+        email= request.form.get("email","")
+        if name and email:
+            contacts.append({"name": name, "email":email})
+        return render_template("add_cont_safe.html", contacts=contacts)
+    return render_template("add_cont_safe.html", contacts=contacts)
+# Handle CSRF errors gracefully
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    return render_template("csrf_error.html", reason=e.description), 400
+
+
 if __name__ == "__main__":
-    init_db()
+    init_db() #okay to call cause it setups the db and seeds data into it
+    #board_vuln() You don’t call board_vuln() yourself — Flask will call it automatically when someone visits /board_vuln.
     app.run(debug=True)

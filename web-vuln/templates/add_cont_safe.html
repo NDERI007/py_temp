@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h1>🛡️ Safe Add Contact (CSRF Protected)</h1>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <label>Name:</label>
+      <input type="text" name="name" /><br />
+      <label>Email:</label>
+      <input type="email" name="email" /><br />
+      <button type="submit">Add</button>
+    </form>
+    <ul>
+      {% for c in contacts %}
+      <li>{{ c.name }} — {{ c.email }}</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

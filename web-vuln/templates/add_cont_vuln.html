@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Contacts (Vulnerable to CSRF)</title>
+  </head>
+  <body>
+    <h1>📒 Contacts (Vulnerable)</h1>
+
+    <ul>
+      {% for c in contacts %}
+      <li>{{ c.name }} — {{ c.email }}</li>
+      {% endfor %}
+    </ul>
+
+    <p><a href="/csrf">⬅ Back to menu</a></p>
+  </body>
+</html>
