@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>🚨 Insecure Password Storage</title>
+  </head>
+  <body>
+    <h1>❌ Insecure Password Dump</h1>
+    <p>This shows why storing plaintext passwords is dangerous.</p>
+
+    <table border="1" cellpadding="5">
+      <tr>
+        <th>Username</th>
+        <th>Password (plaintext!)</th>
+      </tr>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.password }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+
+    <p><a href="/">⬅ Back to Home</a></p>
+  </body>
+</html>

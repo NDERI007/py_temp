@@ -4,3 +4,4 @@ flask-sqlalchemy
 passlib[bcrypt]
 bleach
 pytest
+flask-login
