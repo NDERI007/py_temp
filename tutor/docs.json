@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "title": "HTML Basics",
+    "sections": [
+      {
+        "heading": "What is HTML?",
+        "text": "HTML stands for HyperText Markup Language. It is the standard language used to structure content on the web. Web browsers read HTML and display it as formatted pages."
+      },
+      {
+        "heading": "What are Tags?",
+        "text": "Tags are the building blocks of HTML. A tag tells the browser how to display or interpret a piece of content. Most tags have an opening part, like <p>, and a closing part, like </p>."
+      },
+      {
+        "heading": "Elements",
+        "text": "An element is everything between an opening tag and a closing tag."
+      },
+      {
+        "heading": "Common Tags",
+        "text": "Some basic tags include <h1> for headings, <p> for paragraphs, <a> for links, <img> for images, and <div> for dividing content into sections."
+      },
+      {
+        "heading": "Attributes",
+        "text": "Tags can have attributes that add extra information. For example, the <a> tag uses the href attribute to point to a URL.",
+        "code": "<a href='https://example.com'>Visit</a>"
+      },
+      {
+        "heading": "Unordered Lists",
+        "text": "Unordered lists display items with bullet points. Use the <ul> tag for the list and <li> for each item.",
+        "code": "<ul>\n  <li>Apples</li>\n  <li>Bananas</li>\n  <li>Oranges</li>\n</ul>"
+      },
+      {
+        "heading": "Ordered Lists",
+        "text": "Ordered lists display items with numbers. Use the <ol> tag for the list and <li> for each item.",
+        "code": "<ol>\n  <li>Step one</li>\n  <li>Step two</li>\n  <li>Step three</li>\n</ol>"
+      },
+      {
+        "heading": "Adding Images",
+        "text": "The <img> tag is used to display images. It needs a src attribute to specify the image file, and an alt attribute to describe the image.",
+        "code": "<img src='image.jpg' alt='A description of the image'>"
+      }
+    ]
+  }
+]

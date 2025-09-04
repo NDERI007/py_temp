@@ -3,13 +3,17 @@ __pycache__/
 *.py[codz]
 *$py.class
 /python-template/
+models/
 # C extensions
 *.so
 # Ignore Ed25519 keys
 *.pem
 
+#RAG files
+*.faiss
+*pkl
 #toml
-pyProj.toml
+pyproject.toml
 
 # Distribution / packaging
 .Python
