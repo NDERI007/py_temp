@@ -1,9 +1,12 @@
 import os
 import pickle
+import re
+from typing import List, Tuple
 import faiss
 from flask import Flask, request, jsonify, render_template_string
 from llama_cpp import Llama
 from dotenv import load_dotenv
+import numpy as np
 from sentence_transformers import SentenceTransformer
 
 # ------------------------------
@@ -33,35 +36,155 @@ embedder = SentenceTransformer(EMBED_MODEL)
 
 if not (os.path.exists(INDEX_PATH) and os.path.exists(META_PATH)):
     raise RuntimeError("No RAG index found. Run index_build.py first.")
-
 index = faiss.read_index(INDEX_PATH)
 with open(META_PATH, "rb") as f:
-    meta = pickle.load(f)
+    store = pickle.load(f)
 
-texts = meta["texts"]
-metadata = meta["meta"]
+texts = store["texts"]
+metadata = store["meta"]
+parents = store.get("parents", {})  # parent_id -> parent text
 
 
+# ------------------------------
+# MMR utility (diversify retrieval)
+# ------------------------------
+def mmr(query_vec: np.ndarray, doc_vecs: np.ndarray, k: int = 5, lambda_mult: float = 0.5) -> List[int]:
+    """Maximal Marginal Relevance to avoid redundancy in retrieval.
+       Balances relevance (similar to query) and diversity (not too redundant). 
+       lambda_mult=0.5 controls the tradeoff.
+       This avoids returning 8 nearly identical chunks.
+       """
+    selected = []
+    candidates = list(range(len(doc_vecs)))
 
-def retrieve_context(query: str, k: int = 3) -> tuple[str, list[str]]:
-    """Embed query, search FAISS, return joined text chunks + any related code."""
-    q_emb = embedder.encode([query], convert_to_numpy=True, normalize_embeddings=True)
-    distances, indices = index.search(q_emb, k)
+    while len(selected) < k and candidates:
+        if not selected:
+            # first pick = most similar
+            idx = np.argmax(doc_vecs @ query_vec)
+            selected.append(idx)
+            candidates.remove(idx)
+            continue
 
-    retrieved_texts = []
-    retrieved_code = []
+        # compute scores
+        query_sims = doc_vecs[candidates] @ query_vec
+        diversity = np.max(doc_vecs[selected] @ doc_vecs[candidates].T, axis=0)
+        mmr_scores = lambda_mult * query_sims - (1 - lambda_mult) * diversity
 
-    for i in indices[0]:
-        if i < len(texts):
-            entry = texts[i]
-            entry_meta = metadata[i]
+        idx = candidates[int(np.argmax(mmr_scores))]
+        selected.append(idx)
+        candidates.remove(idx)
 
-            if entry_meta.get("type") == "text":
-                retrieved_texts.append(entry)
-            elif entry_meta.get("type") == "code":
-                retrieved_code.append(entry)
+    return selected
 
-    return "\n".join(retrieved_texts), retrieved_code
+
+# ------------------------------
+# Retriever
+# ------------------------------
+def retrieve_context(
+    query: str,
+    k_children: int = 8,
+    k_final: int = 3,
+    prefer_code: bool = False
+) -> Tuple[str, List[str]]:
+    """
+    Robust retrieval:
+      - accepts FAISS results in a variety of shapes/types
+      - converts indices safely to Python ints
+      - does MMR, parent aggregation and returns (context, code_snippets)
+    """
+    # Encode query -> 1D numpy vector
+    q = embedder.encode([query], convert_to_numpy=True, normalize_embeddings=True)[0]
+
+    # ANN search: returns (distances, indices)
+    D, I = index.search(q[np.newaxis, :], max(32, k_children * 4))
+
+    # Normalize indices to a 1-D iterable of raw index entries
+    I_arr = np.asarray(I)  # typically shape (1, k) for single query
+    if I_arr.ndim == 1:
+        raw_indices = I_arr  # already flat
+    elif I_arr.ndim == 2:
+        # first row corresponds to our single query
+        raw_indices = I_arr[0]
+    else:
+        # fallback: flatten everything
+        raw_indices = I_arr.ravel()
+
+    # Collect candidate children (safely casting any nested arrays/scalars)
+    candidates = []
+    for raw in raw_indices:
+        # turn raw into a numpy array so we can inspect size
+        raw_np = np.asarray(raw)
+
+        # If raw_np has multiple entries (rare), iterate through them
+        if raw_np.size > 1:
+            vals = raw_np.ravel()
+        else:
+            vals = [raw_np.item()]
+
+        for v in vals:
+            # attempt safe conversion to int, skip invalid
+            try:
+                i = int(v)
+            except Exception:
+                continue
+            if i < 0 or i >= len(texts):
+                continue
+
+            m = metadata[i]
+
+            # intent boost detection (simple heuristic)
+            if prefer_code or re.search(r"<[a-z]|{|\(|</|```", query.lower()):
+                score_boost = 0.10 if m.get("type") == "code" else 0.0
+            else:
+                score_boost = 0.10 if m.get("type") == "text" else 0.0
+
+            candidates.append((i, m, score_boost))
+
+    if not candidates:
+        return "", []
+
+    # Compute embeddings for candidate child texts
+    cand_texts = [texts[i] for i, _, _ in candidates]
+    child_vecs = embedder.encode(cand_texts, convert_to_numpy=True, normalize_embeddings=True)
+
+    # MMR to pick diverse children (re-using your mmr util)
+    sel_idx = mmr(q, child_vecs, k=min(k_children, len(candidates)), lambda_mult=0.5)
+    picked = [candidates[j] for j in sel_idx]
+
+    # Aggregate by parent
+    parents_hit = {}
+    for i, m, boost in picked:
+        pid = m.get("parent_id", None)
+        parents_hit.setdefault(pid, {"parent": parents.get(pid, ""), "children": []})
+        parents_hit[pid]["children"].append(texts[i])
+
+    # Rank parents by similarity (re-embedding small concatenations)
+    scored = []
+    for pid, pack in parents_hit.items():
+        child_text = " ".join(pack["children"])
+        # get similarity between aggregated child_text and query
+        try:
+            sim = float(embedder.encode([child_text], convert_to_numpy=True, normalize_embeddings=True)[0] @ q)
+        except Exception:
+            sim = 0.0
+        scored.append((sim, pid, pack))
+
+    scored.sort(reverse=True)
+    top = scored[:k_final]
+
+    # Build final context and code snippets
+    final_context = []
+    code_snips = []
+    for _, pid, pack in top:
+        if pack["parent"]:
+            final_context.append(pack["parent"])
+        for snip in pack["children"][:2]:
+            final_context.append(snip)
+            # heuristic for code-like snippets
+            if re.search(r"[<>{}();/=]|^\s*```", snip):
+                code_snips.append(snip)
+
+    return "\n\n".join(final_context), code_snips[:5]
 
 # ------------------------------
 # Prompt Template
@@ -99,13 +222,19 @@ def home():
     if request.method == "POST":
         query = request.form.get("query", "").strip()
         if query:
-            context_used, code_snippets = retrieve_context(query)
+            context_used, code_snippets = retrieve_context(query, prefer_code=True)
             prompt = PROMPT_TEMPLATE.format(context=context_used, question=query)
-            try:
-                output = llm(prompt, max_tokens=100, temperature=0.3)
-                answer = output["choices"][0]["text"].strip()
-            except Exception as e:
-                answer = f"Error: {str(e)}"
+            if context_used.strip():
+                prompt = PROMPT_TEMPLATE.format(context=context_used, question=query)
+                try:
+                    output = llm(prompt, max_tokens=100, temperature=0.3)
+                    answer = output["choices"][0]["text"].strip()
+                    # keep it short
+                    answer = answer.split("\n")[0]
+                except Exception as e:
+                    answer = f"Error: {str(e)}"
+            else:
+                answer = "I couldn't find anything relevant in the docs."
 
     return render_template_string("""
         <!DOCTYPE html> 

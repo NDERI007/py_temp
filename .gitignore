@@ -9,7 +9,7 @@ models/
 # Ignore Ed25519 keys
 *.pem
 
-#RAG files
+#RAG files Facebook AI Similarity Search & Pickle file
 *.faiss
 *pkl
 #toml

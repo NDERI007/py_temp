@@ -1,123 +1,119 @@
-# index_build.py
-import json
-from sentence_transformers import SentenceTransformer
-import faiss
-import pickle
+import json, pickle, re, hashlib
 from pathlib import Path
-import re
+from typing import List
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
+from transformers import AutoTokenizer
 
-# ------------------------------
-# Config
-# ------------------------------
 EMBED_MODEL = "all-MiniLM-L6-v2"
-CHUNK_SIZE = 80   # smaller chunks since HTML docs are short
-OVERLAP = 20
-
 MODEL = SentenceTransformer(EMBED_MODEL)
+TOKENIZER = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
+def clean_text(t: str) -> str:
+    return re.sub(r"\s+", " ", t).strip()
 
-# ------------------------------
-# Helpers
-# ------------------------------
-def clean_text(text: str) -> str:
-    """Basic cleanup: collapse whitespace and strip."""
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+def split_by_sentences(text: str) -> list[str]:
+    return [p for p in re.split(r'(?<=[.!?])\s+', text.strip()) if p]
 
+def token_len(s: str) -> int:
+    return len(TOKENIZER.encode(s, add_special_tokens=False))
 
-def chunk_text(text: str, chunk_size=CHUNK_SIZE, overlap=OVERLAP):
-    """Split text into overlapping chunks of words."""
-    tokens = text.split()
-    chunks = []
-    i = 0
-    while i < len(tokens):
-        chunk = " ".join(tokens[i:i + chunk_size])
-        chunks.append(clean_text(chunk))
-        if i + chunk_size >= len(tokens):
-            break
-        i += chunk_size - overlap
-    return chunks
+def chunk_semantic(text: str, tok_limit=384, tok_overlap=64) -> list[str]:
+    sents = split_by_sentences(text)
+    chunks, buf, buf_len = [], [], 0
+    for s in sents:
+        sl = token_len(s)
+        if sl > tok_limit:
+            words = s.split()
+            for i in range(0, len(words), 80):
+                chunks.append(" ".join(words[i:i+80]))
+            continue
+        if buf_len + sl <= tok_limit:
+            buf.append(s); buf_len += sl
+        else:
+            chunks.append(" ".join(buf))
+            while buf and buf_len > tok_overlap:
+                popped = buf.pop(0); buf_len -= token_len(popped)
+            buf.append(s); buf_len += sl
+    if buf: chunks.append(" ".join(buf))
+    return [clean_text(c) for c in chunks if c.strip()]
 
+def section_id(title:str, heading:str) -> str:
+    return hashlib.sha1(f"{title}::{heading}".encode()).hexdigest()[:16]
 
-# ------------------------------
-# Build index
-# ------------------------------
 def main():
     docs_path = Path("docs.json")
-    if not docs_path.exists():
-        raise FileNotFoundError("docs.json not found! Place your knowledge base first.")
+    docs = json.loads(docs_path.read_text(encoding="utf-8"))
 
-    docs = json.load(open(docs_path, "r", encoding="utf-8"))
-
-    texts = []
-    meta = []
+    texts: List[str] = []
+    meta: List[dict] = []
+    parents: dict[str, str] = {}  # parent_id -> parent_text
 
     for d in docs:
-        doc_id = d.get("id") or len(meta)
+        doc_id = d.get("id", 0)
         title = d.get("title", "")
-
         if "sections" in d:
-            # structured doc
-            for sec in d["sections"]:
+            for sec in enumerate(d["sections"]):
                 heading = sec.get("heading", "")
+                pid = section_id(title, heading)
 
-                # ✅ 1. Index normal text (priority source for hints)
-                if "text" in sec and sec["text"].strip():
-                    for idx, ch in enumerate(chunk_text(sec["text"])):
+                # Combine title/heading into the parent (improves recall)
+                parent_text = clean_text(f"{title} — {heading}. {sec.get('text','')}")
+                if parent_text:
+                    parents[pid] = parent_text
+
+                # TEXT children
+                if sec.get("text", "").strip():
+                    for c_idx, ch in enumerate(chunk_semantic(sec["text"])):
                         texts.append(ch)
                         meta.append({
-                            "doc_id": doc_id,
-                            "title": title,
-                            "heading": heading,
-                            "chunk_id": idx,
-                            "type": "text"   # 👈 tag it as explanation
+                            "doc_id": doc_id, "title": title, "heading": heading,
+                            "parent_id": pid, "child_id": f"{pid}:t{c_idx}",
+                            "type": "text"
                         })
-
-                # ✅ 2. Index code separately (retrievable but not prioritized for hint generation)
-                if "code" in sec and sec["code"].strip():
+                # CODE child (keep whole)
+                if sec.get("code", "").strip():
                     texts.append(sec["code"])
                     meta.append({
-                        "doc_id": doc_id,
-                        "title": title,
-                        "heading": heading,
-                        "chunk_id": 0,
-                        "type": "code"   # 👈 tag it as code
+                        "doc_id": doc_id, "title": title, "heading": heading,
+                        "parent_id": pid, "child_id": f"{pid}:c0",
+                        "type": "code"
                     })
-
         else:
-            # flat doc fallback
-            for idx, ch in enumerate(chunk_text(d.get("text", ""))):
+            # flat doc
+            pid = section_id(title, "")
+            body = d.get("text","")
+            parents[pid] = clean_text(f"{title}. {body}")
+            for c_idx, ch in enumerate(chunk_semantic(body)):
                 texts.append(ch)
                 meta.append({
-                    "doc_id": doc_id,
-                    "title": title,
-                    "chunk_id": idx,
+                    "doc_id": doc_id, "title": title, "heading": "",
+                    "parent_id": pid, "child_id": f"{pid}:t{c_idx}",
                     "type": "text"
                 })
 
-    print(f"📄 Total documents: {len(docs)}")
-    print(f"✂️  Total chunks: {len(texts)}")
+    print(f"docs: {len(docs)}  children: {len(texts)}  parents: {len(parents)}")
 
-    # Compute embeddings
-    embeddings = MODEL.encode(
-        texts, 
-        show_progress_bar=True, 
-        convert_to_numpy=True, 
-        normalize_embeddings=True
-    )
+    # Embed children
+    emb = MODEL.encode(texts, show_progress_bar=True, convert_to_numpy=True, normalize_embeddings=True)
 
-    # Build FAISS index (cosine sim)
-    dim = embeddings.shape[1]
-    index = faiss.IndexFlatIP(dim)
-    index.add(embeddings)
+    # HNSW (good default). For IVF/PQ, train first.
+    dim = emb.shape[1]
+    index = faiss.IndexHNSWFlat(dim, 32)
+    index.hnsw.efConstruction = 200
+    index.hnsw.efSearch = 100
+    # map chunk ids -> index
+    id_index = faiss.IndexIDMap2(index)
+    ids = np.arange(len(texts), dtype=np.int64)
+    id_index.add_with_ids(emb, ids)
 
-    # Save index and metadata
-    faiss.write_index(index, "rag_index.faiss")
+    # Save
+    faiss.write_index(id_index, "rag_index.faiss")
     with open("rag_meta.pkl", "wb") as f:
-        pickle.dump({"texts": texts, "meta": meta}, f)
+        pickle.dump({"texts": texts, "meta": meta, "parents": parents}, f)
 
-    print("✅ Index and metadata saved: rag_index.faiss, rag_meta.pkl")
-
+    print("saved rag_index.faiss & rag_meta.pkl")
 
 if __name__ == "__main__":
     main()
